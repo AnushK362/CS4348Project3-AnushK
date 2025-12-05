@@ -42,7 +42,7 @@ class header:
         nextBlock = bytesTo64Endian(blockData[16:24])
         return conversion(rootBlock=rootBlock, nextBlock=nextBlock)
     
-
+@dataclass
 class node:
     blockId: int
     numKeys: int
@@ -79,7 +79,8 @@ class node:
 
         return bytes(blockData)
     
-    def bytesToNode(currInst, blockId: int, blockData: bytes) -> "node":
+    @classmethod
+    def bytesToNode(currNode, blockId: int, blockData: bytes) -> "node":
         
         if len(blockData) != blockSize:
             raise ValueError("Node block must be 512 bytes")
@@ -111,7 +112,7 @@ class node:
         keyList = keyList[:numKeys] #filter and match with keys
         valueList = valueList[:numKeys]
 
-        return currInst(
+        return currNode(
             blockId=nodeBlockId,
             parentId=parentId,
             numKeys=numKeys,
@@ -120,19 +121,19 @@ class node:
             childrenList=childrenList,
         )
 
-def readBlockatId(n, block_id: int) -> bytes:
-    n.seek(block_id * blockSize)
+def readBlockatId(n, blockId: int) -> bytes:
+    n.seek(blockId * blockSize)
     data = n.read(blockSize)
     if len(data) != blockSize:
         raise IOError("Expected 512 bytes")
     return data
 
 
-def writeBlockatId(b, block_id: int, block_data: bytes) -> None:
-    if len(block_data) != blockSize:
+def writeBlockatId(b, blockId: int, blockData: bytes) -> None:
+    if len(blockData) != blockSize:
         raise ValueError("Block data must have 512 bytes")
-    b.seek(block_id * blockSize)
-    b.write(block_data)
+    b.seek(blockId * blockSize)
+    b.write(blockData)
 
 
 def readHeaderData(x) -> header:
@@ -180,11 +181,11 @@ def bTreeSearch(b, currHeader: header, givenKey: int):
         currId = childId
 
 
-def splitChild(f, currHeader: header, parent: node, childIndex: int):
+def splitChild(c, currHeader: header, parent: node, childIndex: int):
     deg = minimalDegree
 
     aId = parent.childrenList[childIndex]
-    a = loadNodeData(f, aId)
+    a = loadNodeData(c, aId)
     if a.numKeys != maxKeys:
         raise ValueError("split cannot happen here")
 
@@ -216,8 +217,8 @@ def splitChild(f, currHeader: header, parent: node, childIndex: int):
     a.vals = a.vals[:deg-1]
     a.numKeys = deg-1
 
-    saveNodeData(f, a)
-    saveNodeData(f, b)
+    saveNodeData(c, a)
+    saveNodeData(c, b)
 
     parent.childrenList.insert(childIndex + 1, bId)
     parent.childrenList = parent.childrenList[:maxChildren]
@@ -237,7 +238,7 @@ def insertNonFull(n, currHeader: header, currNode: node, key: int, val: int):
         while x >= 0 and key < currNode.keyList[x]:
             currNode.keyList[x+1] = currNode.keyList[x]
             currNode.vals[x+1] = currNode.vals[x]
-            x -= 1
+            x = x - 1
 
         currNode.keyList[x+1] = key
         currNode.vals[x+1] = val
@@ -245,7 +246,7 @@ def insertNonFull(n, currHeader: header, currNode: node, key: int, val: int):
         saveNodeData(n, currNode)
     else:
         while x >= 0 and key < currNode.keyList[x]:
-            x -= 1
+            x = x - 1
         x += 1
         childId = currNode.childrenList[x]
         child = loadNodeData(n, childId)
@@ -261,17 +262,201 @@ def insertNonFull(n, currHeader: header, currNode: node, key: int, val: int):
 
         insertNonFull(n, currHeader, child, key, val)
 
-def cmdCreateFile(path: str) -> None:
-    if os.path.exists(path):
-        print("error: File already exists", file=sys.stderr)
+def genericInsert(n, currHeader: header, currKey: int, val: int):
+    found = bTreeSearch(n, currHeader, currKey)
+    if found is not None:
+        blockId, currNode, idx = found   # unpack 3 values
+        currNode.vals[idx] = val
+        saveNodeData(n, currNode)
+        return
+
+    if currHeader.rootBlock == 0:
+        rootId = currHeader.nextBlock
+        currHeader.nextBlock += 1
+        rootNode = node(
+            blockId=rootId,
+            parentId=0,
+            numKeys=1,
+            keyList=[currKey],
+            vals=[val],
+            childrenList=[0] * maxChildren,
+        )
+        saveNodeData(n, rootNode)
+        currHeader.rootBlock = rootId
+        writeHeaderData(n, currHeader)
+        return
+
+    rootNode = loadNodeData(n, currHeader.rootBlock)
+
+    if rootNode.numKeys == maxKeys:
+        newRootId = currHeader.nextBlock
+        currHeader.nextBlock += 1
+        newRoot = node(
+            blockId=newRootId,
+            parentId=0,
+            numKeys=0,
+            keyList=[],
+            vals=[],
+            childrenList=[0] * maxChildren,
+        )
+        newRoot.childrenList[0] = rootNode.blockId
+        rootNode.parentId = newRootId
+        saveNodeData(n, rootNode)
+
+        splitChild(n, currHeader, newRoot, 0)
+        currHeader.rootBlock = newRootId
+        saveNodeData(n, newRoot)
+        writeHeaderData(n, currHeader)
+
+        insertNonFull(n, currHeader, newRoot, currKey, val)
+    else:
+        insertNonFull(n, currHeader, rootNode, currKey, val)
+        writeHeaderData(n, currHeader)
+
+# Inorder Traversal
+
+def inorderTraverseAction(n, nodeId: int, outputList: List[tuple[int, int]]):
+    currNode = loadNodeData(n, nodeId)
+    for n in range(currNode.numKeys):
+        if currNode.childrenList[n] != 0:
+            inorderTraverseAction(n, currNode.childrenList[n], outputList)
+        outputList.append((currNode.keyList[n], currNode.vals[n]))
+    if currNode.childrenList[currNode.numKeys] != 0:
+        inorderTraverseAction(n, currNode.childrenList[currNode.numKeys], outputList)
+
+def cmdCreateFile(fileName: str) -> None:
+    if os.path.exists(fileName):
+        print("The file already exists", file=sys.stderr)
         sys.exit(1)
 
     setHeader = header(rootBlock=0, nextBlock=1) 
 
-    with open(path, "wb") as f:
+    with open(fileName, "wb") as f:
         writeHeaderData(f, setHeader)
 
-    print(f"Created index file '{path}'")
+    print(f"Created a new index file'{fileName}'")
+
+def updateIndexFile(filePath: str):
+    if not os.path.exists(filePath):
+        print("The index file does not exist", file=sys.stderr)
+        sys.exit(1)
+    currFile = open(filePath, "r+b")
+    try:
+        currHeader = readHeaderData(currFile)
+    except Exception as e:
+        currFile.close()
+        print("The file is invalid", e, file=sys.stderr)
+        sys.exit(1)
+    return currFile, currHeader
+
+def insertOperation(filePath: str, currKey: str, currVal: str) -> None:
+    try:
+        realKey = int(currKey)
+        realVal = int(currVal)
+    except ValueError:
+        print("Please enter integers on the command line", file=sys.stderr)
+        sys.exit(1)
+
+    node, currHeader = updateIndexFile(filePath)
+    with node:
+        genericInsert(node, currHeader, realKey, realVal)
+
+def searchOperation(filePath: str, searchKey: str) -> None:
+    try:
+        currKey = int(searchKey)
+    except ValueError:
+        print("Key must be integer", file=sys.stderr)
+        sys.exit(1)
+
+    if not os.path.exists(filePath):
+        print("The index file does not exist", file=sys.stderr)
+        sys.exit(1)
+
+    with open(filePath, "rb") as file:
+        try:
+            currHeader = readHeaderData(file)
+        except Exception as exc:
+            print("The index file is in invalid", exc, file=sys.stderr)
+            sys.exit(1)
+
+        searchResult = bTreeSearch(file, currHeader, currKey)
+        if searchResult is None:
+            print("Node not found")
+        else:
+            blockId, currNode, idx = searchResult
+            print(f"{currNode.keyList[idx]} {currNode.vals[idx]}")
+
+def loadOperation(filePath: str, csvPath: str) -> None:
+    if not os.path.exists(csvPath):
+        print("CSV file does not exist", file=sys.stderr)
+        sys.exit(1)
+
+    f, currHeader = updateIndexFile(filePath)
+    
+    with f, open(csvPath, "r", encoding="utf-8") as currFile:
+        for currLine in currFile:
+            currLine = currLine.strip()
+            if not currLine:
+                continue
+            components = currLine.split(",")
+            if len(components) != 2:
+                print("Skipping improper line:", currLine, file=sys.stderr)
+                continue
+            searchKey, searchValue = components
+            try:
+                stripKey = int(searchKey.strip())
+                rawValue = int(searchValue.strip())
+            except ValueError:
+                print("Skipping non-integer line", currLine, file=sys.stderr)
+                continue
+            genericInsert(f, currHeader, stripKey, rawValue)
+
+def printOperation(filePath: str) -> None:
+    if not os.path.exists(filePath):
+        print("The index file does not exist", file=sys.stderr)
+        sys.exit(1)
+
+    with open(filePath, "rb") as file:
+        try:
+            currHeader = readHeaderData(file)
+        except Exception as exc:
+            print("The index file is invalid", exc, file=sys.stderr)
+            sys.exit(1)
+
+        if currHeader.rootBlock == 0:
+            return
+
+        pairings: List[tuple[int, int]] = []
+        inorderTraverseAction(file, currHeader.rootBlock, pairings)
+        for key, val in pairings:
+            print(f"{key} {val}")
+
+def extractOperation(filePath: str, outputPath: str) -> None:
+    if os.path.exists(outputPath):
+        print("The Output file already exists", file=sys.stderr)
+        sys.exit(1)
+
+    if not os.path.exists(filePath):
+        print("The Index file does not exist", file=sys.stderr)
+        sys.exit(1)
+
+    with open(filePath, "rb") as newFile:
+        try:
+            currHeader = readHeaderData(newFile)
+        except Exception as exc:
+            print("Invalid index file:", exc, file=sys.stderr)
+            sys.exit(1)
+
+        with open(outputPath, "w", encoding="utf-8") as outputFile:
+            if currHeader.rootBlock == 0:
+                return
+
+            pairings: List[tuple[int, int]] = []
+            inorderTraverseAction(newFile, currHeader.rootBlock, pairings)
+            for key, val in pairings:
+                outputFile.write(f"{key},{val}\n")
+
+
 
 def main(argList: List[str]) -> None:
     if len(argList) < 2:
@@ -282,12 +467,34 @@ def main(argList: List[str]) -> None:
 
     if currCommand == "create":
         if len(argList) != 3:
-            print("usage: project3.py create <indexfile>", file=sys.stderr)
+            print("Usage: project3.py create <indexfile>", file=sys.stderr)
             sys.exit(1)
         cmdCreateFile(argList[2])
-    else:
-        print(f"error: command '{currCommand}' not implemented yet", file=sys.stderr)
-        sys.exit(1)
+    elif currCommand == "insert":
+        if len(argList) != 5:
+            print("Usage: project3.py insert <indexfile> <key> <value>", file=sys.stderr)
+            sys.exit(1)
+        insertOperation(argList[2], argList[3], argList[4])
+    elif currCommand == "load":
+        if len(argList) != 4:
+            print("Usage: project3.py load <indexfile> <csvfile>", file=sys.stderr)
+            sys.exit(1)
+        loadOperation(argList[2], argList[3])
+    elif currCommand == "search":
+        if len(argList) != 4:
+            print("Usage: project3.py search <indexfile> <key>", file=sys.stderr)
+            sys.exit(1)
+        searchOperation(argList[2], argList[3])
+    elif currCommand == "extract":
+        if len(argList) != 4:
+            print("Usage: project3.py extract <indexfile> <csvfile>", file=sys.stderr)
+            sys.exit(1)
+        extractOperation(argList[2], argList[3])
+    elif currCommand == "print":
+        if len(argList) != 3:
+            print("Usage: project3.py print <indexfile>", file=sys.stderr)
+            sys.exit(1)
+        printOperation(argList[2])
 
 
 if __name__ == "__main__":
