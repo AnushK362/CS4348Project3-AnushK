@@ -392,9 +392,9 @@ def loadOperation(filePath: str, csvPath: str) -> None:
         print("CSV file does not exist", file=sys.stderr)
         sys.exit(1)
 
-    f, currHeader = updateIndexFile(filePath)
+    fileVal, currHeader = updateIndexFile(filePath)
     
-    with f, open(csvPath, "r", encoding="utf-8") as currFile:
+    with fileVal, open(csvPath, "r", encoding="utf-8") as currFile:
         for currLine in currFile:
             currLine = currLine.strip()
             if not currLine:
@@ -410,7 +410,7 @@ def loadOperation(filePath: str, csvPath: str) -> None:
             except ValueError:
                 print("Skipping non-integer line", currLine, file=sys.stderr)
                 continue
-            genericInsert(f, currHeader, stripKey, rawValue)
+            genericInsert(fileVal, currHeader, stripKey, rawValue)
 
 def printOperation(filePath: str) -> None:
     if not os.path.exists(filePath):
