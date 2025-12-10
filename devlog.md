@@ -33,4 +33,8 @@ I have implemented the different insert functions. It turns out that beyond the 
 
 This was a long but very productive session. Not only was I able to finish the bk-tree functionality, but I was also able to implement the command functionality and integrate with the main method. I ran into some extra problem with the load command/operation, but I realized that I was not handling the file format properly (transition from csv to index). In addition, I was also able test the different commands and debug the different issues that I was having. At a basic level all the commands are working, however rigorous testing is still needed especially for edge cases. Next session will be solely dedicated to debugging and understanding if the output I am getting is truly right. For now, I will test in this current branch and only merge to main once I am condfident that the entire program is working. Overall, I am happy that I completed the goal for this session and also with the progress that I have made. The next step is thinking of comprehensive ways to test the program. 
 
+## 12/10/2025 8:24 AM
+
+I am happy with the current state of the project. I was thinking about how I can test the program effecitveley in terms of input and b-tree structure. This session I plan to debug the program and test the entire functionality. I might also change some variable names to make them more clear in terms of their purpose. Some of the naming can be clarified more. In addition, I have an idea of what input is needed to also check the edge cases for the program. Overall, my goal is to thoroughly test the program and submit it.
+
 
