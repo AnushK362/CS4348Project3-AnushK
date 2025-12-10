@@ -252,7 +252,7 @@ def insertNonFull(n, currHeader: header, currNode: node, key: int, val: int):
         child = loadNodeData(n, childId)
 
         if child.numKeys == maxKeys:
-            splitChild(n, currHeader, node, x)
+            splitChild(n, currHeader, currNode, x)
             saveNodeData(n, node)
             writeHeaderData(n, currHeader)
             if key > currNode.keyList[x]:
@@ -315,15 +315,16 @@ def genericInsert(n, currHeader: header, currKey: int, val: int):
 
 # Inorder Traversal
 
-def inorderTraverseAction(n, nodeId: int, outputList: List[tuple[int, int]]):
-    currNode = loadNodeData(n, nodeId)
-    for n in range(currNode.numKeys):
-        if currNode.childrenList[n] != 0:
-            inorderTraverseAction(n, currNode.childrenList[n], outputList)
-        outputList.append((currNode.keyList[n], currNode.vals[n]))
+def inorderTraverseAction(fileHand, nodeId: int, outputList: List[tuple[int, int]]):
+    currNode = loadNodeData(fileHand, nodeId)
+    for x in range(currNode.numKeys):
+        if currNode.childrenList[x] != 0:
+            inorderTraverseAction(fileHand, currNode.childrenList[x], outputList)
+        outputList.append((currNode.keyList[x], currNode.vals[x]))
     if currNode.childrenList[currNode.numKeys] != 0:
-        inorderTraverseAction(n, currNode.childrenList[currNode.numKeys], outputList)
+        inorderTraverseAction(fileHand, currNode.childrenList[currNode.numKeys], outputList)
 
+# Create file command
 def cmdCreateFile(fileName: str) -> None:
     if os.path.exists(fileName):
         print("The file already exists", file=sys.stderr)
@@ -381,7 +382,7 @@ def searchOperation(filePath: str, searchKey: str) -> None:
 
         searchResult = bTreeSearch(file, currHeader, currKey)
         if searchResult is None:
-            print("Node not found")
+            print("Key/Value pair not found")
         else:
             blockId, currNode, idx = searchResult
             print(f"{currNode.keyList[idx]} {currNode.vals[idx]}")
