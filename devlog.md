@@ -42,4 +42,6 @@ I am happy with the current state of the project. I was thinking about how I can
 
 Overall, the testing went well. I tested every command and all of them work. I did change a few variable names and strings, but not too much. In addition, I inspected the resulting hex file to see if I was getting the correct values and indeed the correct values were in the index file. My final plan of action, is to merge my final changes to main and submit the project. Throughout, the course of the project I feel I have gotten a better understanding of b-trees and python. Overall, I believe that I have completed the goal for this session and the entire project. Before submission, I will also modify the README as needed so that the grader can see how I ran the program. 
 
+I made some last minute variable/comment changes after submission, but I resubmitted. No functionality changed.
+
 
