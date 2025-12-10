@@ -38,3 +38,8 @@ This was a long but very productive session. Not only was I able to finish the b
 I am happy with the current state of the project. I was thinking about how I can test the program effecitveley in terms of input and b-tree structure. This session I plan to debug the program and test the entire functionality. I might also change some variable names to make them more clear in terms of their purpose. Some of the naming can be clarified more. In addition, I have an idea of what input is needed to also check the edge cases for the program. Overall, my goal is to thoroughly test the program and submit it.
 
 
+## 12/10/2025 9:55 AM
+
+Overall, the testing went well. I tested every command and all of them work. I did change a few variable names and strings, but not too much. In addition, I inspected the resulting hex file to see if I was getting the correct values and indeed the correct values were in the index file. My final plan of action, is to merge my final changes to main and submit the project. Throughout, the course of the project I feel I have gotten a better understanding of b-trees and python. Overall, I believe that I have completed the goal for this session and the entire project. Before submission, I will also modify the README as needed so that the grader can see how I ran the program. 
+
+
