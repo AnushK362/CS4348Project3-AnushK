@@ -109,7 +109,7 @@ class node:
             childrenList.append(bytesTo64Endian(blockData[offset:offset+8]))
             offset += 8
 
-        keyList = keyList[:numKeys] #filter and match with keys
+        keyList = keyList[:numKeys] # filter and match with keys
         valueList = valueList[:numKeys]
 
         return currNode(
@@ -265,7 +265,7 @@ def insertNonFull(n, currHeader: header, currNode: node, key: int, val: int):
 def genericInsert(n, currHeader: header, currKey: int, val: int):
     found = bTreeSearch(n, currHeader, currKey)
     if found is not None:
-        blockId, currNode, idx = found   # unpack 3 values
+        blockId, currNode, idx = found   # retrieve the value of 3 indpendent values
         currNode.vals[idx] = val
         saveNodeData(n, currNode)
         return
